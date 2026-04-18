@@ -108,6 +108,77 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
     }
   }
 
+  // 🔥 INGRESO MANUAL (SKU + CODIGO)
+  Future<void> agregarManual() async {
+    final controller = TextEditingController();
+
+    final texto = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Ingresar producto'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'SKU (recomendado)',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Buscar'),
+          ),
+        ],
+      ),
+    );
+
+    if (texto == null || texto.isEmpty) return;
+
+    try {
+      final data = await supabase
+          .from('productos')
+          .select()
+          .or('sku.eq.$texto,codigo.eq.$texto') // 🔥 CAMBIO CLAVE
+          .maybeSingle();
+
+      if (data == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Producto no encontrado')),
+        );
+        return;
+      }
+
+      final cantidad = await pedirCantidad(data['nombre']);
+      if (cantidad == null) return;
+
+      final index = productos.indexWhere(
+        (p) =>
+            p['codigo'] == data['codigo'] &&
+            p['tipo'] == tipoSeleccionado,
+      );
+
+      setState(() {
+        if (index >= 0) {
+          productos[index]['cantidad'] += cantidad;
+        } else {
+          productos.add({
+            'codigo': data['codigo'],
+            'nombre': data['nombre'],
+            'precio': data['precio'],
+            'cantidad': cantidad,
+            'tipo': tipoSeleccionado,
+          });
+        }
+      });
+    } catch (e) {
+      debugPrint(e.toString());
+    }
+  }
+
   // 🔹 TOTALES
   double get total => productos.fold(
         0,
@@ -160,7 +231,7 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
             'total': total,
             'total_cambios': totalCambios,
             'total_averias': totalAverias,
-            'created_at': DateTime.now().toIso8601String(), // 🔥 FIX CLAVE
+            'created_at': DateTime.now().toIso8601String(),
           })
           .select()
           .single();
@@ -209,9 +280,22 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
       appBar: AppBar(title: const Text('Nueva Recepción')),
 
       floatingActionButton: iniciado
-          ? FloatingActionButton(
-              onPressed: escanear,
-              child: const Icon(Icons.qr_code),
+          ? Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                FloatingActionButton(
+                  heroTag: 'manual',
+                  onPressed: agregarManual,
+                  backgroundColor: Colors.blue,
+                  child: const Icon(Icons.edit),
+                ),
+                const SizedBox(width: 10),
+                FloatingActionButton(
+                  heroTag: 'scan',
+                  onPressed: escanear,
+                  child: const Icon(Icons.qr_code),
+                ),
+              ],
             )
           : null,
 
@@ -254,7 +338,7 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
                   const SizedBox(height: 10),
 
                   DropdownButtonFormField(
-                    value: tipoSeleccionado,
+                    initialValue: tipoSeleccionado, // 🔥 CAMBIO
                     decoration: const InputDecoration(labelText: 'Tipo'),
                     items: const [
                       DropdownMenuItem(value: 'cambio', child: Text('Cambio')),
@@ -268,7 +352,7 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
 
                   Expanded(
                     child: productos.isEmpty
-                        ? const Center(child: Text('Escanea productos'))
+                        ? const Center(child: Text('Agrega productos'))
                         : ListView.builder(
                             itemCount: productos.length,
                             itemBuilder: (_, i) {

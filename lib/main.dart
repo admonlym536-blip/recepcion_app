@@ -4,9 +4,8 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'config/supabase_config.dart';
 
-// 🔥 IMPORTS DE PANTALLAS
+// 🔥 SOLO ESTE IMPORT ES NECESARIO
 import 'screens/login_page.dart';
-import 'screens/lista_recepciones_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -70,7 +69,6 @@ class MyApp extends StatelessWidget {
         ),
       ),
 
-      // 🔥 AQUÍ ARRANCA LA APP
       home: const LoginPage(),
     );
   }
