@@ -23,11 +23,11 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
   bool iniciado = false;
   bool loading = false;
 
-  String tipoSeleccionado = 'cambio';
+  // 🔥 CAMBIO
+  String tipoSeleccionado = 'devolucion buena';
 
   List<Map<String, dynamic>> productos = [];
 
-  // 🔹 PEDIR CANTIDAD
   Future<int?> pedirCantidad(String nombre) async {
     final controller = TextEditingController(text: '1');
 
@@ -57,7 +57,6 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
     );
   }
 
-  // 🔹 ESCANEAR
   Future<void> escanear() async {
     final codigo = await Navigator.push(
       context,
@@ -108,7 +107,6 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
     }
   }
 
-  // 🔥 INGRESO MANUAL (SKU + CODIGO)
   Future<void> agregarManual() async {
     final controller = TextEditingController();
 
@@ -141,7 +139,7 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
       final data = await supabase
           .from('productos')
           .select()
-          .or('sku.eq.$texto,codigo.eq.$texto') // 🔥 CAMBIO CLAVE
+          .or('sku.eq.$texto,codigo.eq.$texto')
           .maybeSingle();
 
       if (data == null) {
@@ -179,15 +177,15 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
     }
   }
 
-  // 🔹 TOTALES
   double get total => productos.fold(
         0,
         (s, p) =>
             s + ((p['precio'] as num) * (p['cantidad'] as int)),
       );
 
-  double get totalCambios => productos
-      .where((p) => p['tipo'] == 'cambio')
+  // 🔥 CAMBIO
+  double get totalDevolucionBuena => productos
+      .where((p) => p['tipo'] == 'devolucion buena')
       .fold(
         0,
         (s, p) =>
@@ -202,7 +200,6 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
             s + ((p['precio'] as num) * (p['cantidad'] as int)),
       );
 
-  // 🔥 GUARDAR
   Future<void> guardar() async {
     if (productos.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -229,7 +226,8 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
             'placa': placaController.text,
             'usuario': Supabase.instance.client.auth.currentUser?.email,
             'total': total,
-            'total_cambios': totalCambios,
+            // 🔥 CAMBIO
+            'total_devolucion_buena': totalDevolucionBuena,
             'total_averias': totalAverias,
             'created_at': DateTime.now().toIso8601String(),
           })
@@ -321,7 +319,7 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
                                 MainAxisAlignment.spaceAround,
                             children: [
                               Text(
-                                "Cambios: ${currencyFormat.format(totalCambios)}",
+                                "Devolución buena: ${currencyFormat.format(totalDevolucionBuena)}",
                                 style: const TextStyle(color: Colors.green),
                               ),
                               Text(
@@ -338,11 +336,14 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
                   const SizedBox(height: 10),
 
                   DropdownButtonFormField(
-                    initialValue: tipoSeleccionado, // 🔥 CAMBIO
+                    initialValue: tipoSeleccionado,
                     decoration: const InputDecoration(labelText: 'Tipo'),
                     items: const [
-                      DropdownMenuItem(value: 'cambio', child: Text('Cambio')),
-                      DropdownMenuItem(value: 'averia', child: Text('Avería')),
+                      DropdownMenuItem(
+                          value: 'devolucion buena',
+                          child: Text('Devolución buena')),
+                      DropdownMenuItem(
+                          value: 'averia', child: Text('Avería')),
                     ],
                     onChanged: (v) =>
                         setState(() => tipoSeleccionado = v!),

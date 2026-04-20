@@ -21,7 +21,7 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
   final currencyFormat = NumberFormat.currency(
     locale: 'es_CO',
     symbol: '\$',
-    decimalDigits: 0, // 🔥 sin decimales
+    decimalDigits: 0,
   );
 
   @override
@@ -47,7 +47,6 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
     }
   }
 
-  // 🔥 AGRUPAR PRODUCTOS
   List<Map<String, dynamic>> agruparProductos(List datos) {
     final Map<String, Map<String, dynamic>> mapa = {};
 
@@ -81,7 +80,6 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // 🔥 RESUMEN MEJORADO
                 Card(
                   margin: const EdgeInsets.all(10),
                   child: Padding(
@@ -103,8 +101,9 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
                           mainAxisAlignment:
                               MainAxisAlignment.spaceAround,
                           children: [
+                            // 🔥 CAMBIO AQUÍ
                             Text(
-                              "Cambios: ${currencyFormat.format(r['total_cambios'] ?? 0)}",
+                              "Devolución buena: ${currencyFormat.format(r['total_devolucion_buena'] ?? 0)}",
                               style: const TextStyle(
                                   color: Colors.green),
                             ),
@@ -120,7 +119,6 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
                   ),
                 ),
 
-                // 🔥 ENCABEZADO TABLA
                 Container(
                   padding: const EdgeInsets.all(10),
                   margin: const EdgeInsets.symmetric(horizontal: 10),
@@ -147,7 +145,6 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
                   ),
                 ),
 
-                // 📦 TABLA
                 Expanded(
                   child: agrupados.isEmpty
                       ? const Center(child: Text("Sin productos"))
@@ -163,7 +160,6 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
                                 padding: const EdgeInsets.all(12),
                                 child: Row(
                                   children: [
-                                    // 📦 PRODUCTO
                                     Expanded(
                                       flex: 4,
                                       child: Text(
@@ -173,7 +169,6 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
                                       ),
                                     ),
 
-                                    // 🔢 CANTIDAD
                                     Expanded(
                                       flex: 2,
                                       child: Text(
@@ -182,11 +177,12 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
                                       ),
                                     ),
 
-                                    // 🔄 TIPO
                                     Expanded(
                                       flex: 2,
                                       child: Text(
-                                        d['tipo'],
+                                        d['tipo'] == 'devolucion buena'
+                                            ? 'Devolución buena'
+                                            : d['tipo'],
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
                                           color: d['tipo'] == 'averia'
@@ -197,7 +193,6 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
                                       ),
                                     ),
 
-                                    // 💰 TOTAL
                                     Expanded(
                                       flex: 3,
                                       child: Text(

@@ -25,7 +25,6 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
     decimalDigits: 0,
   );
 
-  // 🔥 STREAM SIN FILTROS (COMPATIBLE)
   Stream<List<Map<String, dynamic>>> getRecepcionesStream() {
     return supabase
         .from('recepciones')
@@ -70,18 +69,17 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          // 🔥 FILTRADO EN FLUTTER (AQUÍ ESTÁ EL TRUCO)
           final recepciones = snapshot.data!.where((r) {
             final fecha = DateTime.parse(r['created_at']);
             return esMismaFecha(fecha);
           }).toList();
 
-          // 🔥 TOTALES EN TIEMPO REAL
           final totalGeneral = recepciones.fold(
               0.0, (sum, r) => sum + (r['total'] ?? 0));
 
-          final totalCambios = recepciones.fold(
-              0.0, (sum, r) => sum + (r['total_cambios'] ?? 0));
+          // 🔥 CORREGIDO
+          final totalDevolucionBuena = recepciones.fold(
+              0.0, (sum, r) => sum + (r['total_devolucion_buena'] ?? 0));
 
           final totalAverias = recepciones.fold(
               0.0, (sum, r) => sum + (r['total_averias'] ?? 0));
@@ -90,7 +88,6 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
             children: [
               const SizedBox(height: 10),
 
-              // 📅 FECHA
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 15),
                 child: Card(
@@ -112,7 +109,6 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
 
               const SizedBox(height: 10),
 
-              // 🔥 TOTAL GENERAL
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 15),
                 child: Card(
@@ -141,7 +137,7 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
 
               const SizedBox(height: 8),
 
-              // 🔥 KPIs
+              // 🔥 KPI CORREGIDO
               Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 15),
@@ -149,8 +145,8 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
                   children: [
                     Expanded(
                       child: _cardKPI(
-                        "Cambios",
-                        currencyFormat.format(totalCambios),
+                        "Devolución buena",
+                        currencyFormat.format(totalDevolucionBuena),
                         color: Colors.green,
                       ),
                     ),
@@ -168,7 +164,6 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
 
               const SizedBox(height: 10),
 
-              // 📋 LISTA
               Expanded(
                 child: recepciones.isEmpty
                     ? _emptyState()
@@ -178,8 +173,11 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
                           final r = recepciones[index];
 
                           final total = r['total'] ?? 0;
-                          final cambios =
-                              r['total_cambios'] ?? 0;
+
+                          // 🔥 CORREGIDO
+                          final devolucionBuena =
+                              r['total_devolucion_buena'] ?? 0;
+
                           final averias =
                               r['total_averias'] ?? 0;
 
@@ -236,7 +234,7 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
                                       ),
                                     ),
                                     Text(
-                                      "C: ${currencyFormat.format(cambios)}",
+                                      "D: ${currencyFormat.format(devolucionBuena)}",
                                       style:
                                           const TextStyle(
                                         color: Colors.green,
