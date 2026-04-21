@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
@@ -222,38 +223,120 @@ class _HistorialSalidaPageState extends State<HistorialSalidaPage> {
   }
 
   //////////////////////////////////////////////////////
+  /// 🔵 AGRUPAR CANASTILLAS (salida / entrada / diferencia)
+  //////////////////////////////////////////////////////
+
+  /// Agrupa los registros de control de canastillas por vehículo para sumar
+  /// las salidas, entradas y calcular la diferencia (salida - entrada) por tamaño.
+  /// También asigna la ruta a cada vehículo utilizando la tabla de vehículos.
+  Future<Map<String, dynamic>> _agruparCanastas(List data) async {
+    Map<String, dynamic> resultado = {};
+    // Obtener la información de los vehículos para conocer la ruta por placa
+    final vehiculos = await supabase.from('vehiculos').select();
+    final mapaVehiculos = {
+      for (var v in vehiculos) v['placa']: v
+    };
+    for (var item in data) {
+      final vehiculo = item['vehiculo'];
+      final infoVehiculo = mapaVehiculos[vehiculo];
+      final ruta = infoVehiculo?['ruta'] ?? 'Sin ruta';
+      // Convertir los campos a enteros para evitar operaciones con null
+      final salidaG = (item['salida_grandes'] ?? 0) as int;
+      final salidaM = (item['salida_medianas'] ?? 0) as int;
+      final salidaP = (item['salida_pequenas'] ?? 0) as int;
+      final entradaG = (item['entrada_grandes'] ?? 0) as int;
+      final entradaM = (item['entrada_medianas'] ?? 0) as int;
+      final entradaP = (item['entrada_pequenas'] ?? 0) as int;
+      final difG = salidaG - entradaG;
+      final difM = salidaM - entradaM;
+      final difP = salidaP - entradaP;
+      if (!resultado.containsKey(vehiculo)) {
+        resultado[vehiculo] = {
+          'ruta': ruta,
+          'salida_grandes': 0,
+          'salida_medianas': 0,
+          'salida_pequenas': 0,
+          'entrada_grandes': 0,
+          'entrada_medianas': 0,
+          'entrada_pequenas': 0,
+          'diferencia_grandes': 0,
+          'diferencia_medianas': 0,
+          'diferencia_pequenas': 0,
+        };
+      }
+      resultado[vehiculo]['salida_grandes'] += salidaG;
+      resultado[vehiculo]['salida_medianas'] += salidaM;
+      resultado[vehiculo]['salida_pequenas'] += salidaP;
+      resultado[vehiculo]['entrada_grandes'] += entradaG;
+      resultado[vehiculo]['entrada_medianas'] += entradaM;
+      resultado[vehiculo]['entrada_pequenas'] += entradaP;
+      resultado[vehiculo]['diferencia_grandes'] += difG;
+      resultado[vehiculo]['diferencia_medianas'] += difM;
+      resultado[vehiculo]['diferencia_pequenas'] += difP;
+    }
+    return resultado;
+  }
+
+  //////////////////////////////////////////////////////
   /// 🟢 CANASTAS
   //////////////////////////////////////////////////////
 
   Widget _canastasTab() {
+    // Mostrar un resumen de entradas y salidas de canastillas por vehículo.
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: supabase
-          .from('canastas_vehiculo')
+          .from('control_canastillas')
           .stream(primaryKey: ['id']).order('id', ascending: false),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-
+        // Filtrar por la fecha seleccionada
         final data = snapshot.data!.where((r) {
           final fecha = DateTime.parse(r['fecha']);
           return esMismaFecha(fecha);
         }).toList();
-
-        return ListView.builder(
-          itemCount: data.length,
-          itemBuilder: (context, index) {
-            final item = data[index];
-
-            return Card(
-              margin: const EdgeInsets.all(10),
-              child: ListTile(
-                leading: const Icon(Icons.inventory,
-                    color: Colors.green),
-                title: Text("Vehículo: ${item['vehiculo']}"),
-                subtitle: Text(
-                    "G: ${item['canastas_grandes']} | M: ${item['canastas_medianas']} | P: ${item['canastas_pequenas']}"),
-              ),
+        // Agrupar salidas y entradas por vehículo y calcular diferencia
+        return FutureBuilder<Map<String, dynamic>>(
+          future: _agruparCanastas(data),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final agrupados = snapshot.data!;
+            return ListView(
+              children: agrupados.entries.map((entry) {
+                final vehiculo = entry.key;
+                final info = entry.value as Map<String, dynamic>;
+                final salidasText =
+                    "G: ${info['salida_grandes']} | M: ${info['salida_medianas']} | P: ${info['salida_pequenas']}";
+                final entradasText =
+                    "G: ${info['entrada_grandes']} | M: ${info['entrada_medianas']} | P: ${info['entrada_pequenas']}";
+                final diffText =
+                    "G: ${info['diferencia_grandes']} | M: ${info['diferencia_medianas']} | P: ${info['diferencia_pequenas']}";
+                return Card(
+                  margin: const EdgeInsets.all(10),
+                  elevation: 3,
+                  child: ListTile(
+                    leading: const Icon(Icons.inventory, color: Colors.green),
+                    title: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          info['ruta'] ?? 'Sin ruta',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        Text("Vehículo: $vehiculo"),
+                        const SizedBox(height: 4),
+                        Text("Salida: $salidasText"),
+                        Text("Entrada: $entradasText"),
+                        Text("Diferencia: $diffText"),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
             );
           },
         );

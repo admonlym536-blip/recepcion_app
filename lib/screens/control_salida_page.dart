@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -238,10 +239,126 @@ class CanastasTab extends StatefulWidget {
 class _CanastasTabState extends State<CanastasTab> {
   Map<String, dynamic>? vehiculoSeleccionado;
   List<Map<String, dynamic>> vehiculos = [];
+  Map<String, dynamic>? registroActual;
 
-  final grandes = TextEditingController();
-  final medianas = TextEditingController();
-  final pequenas = TextEditingController();
+  // Controladores para salida de canastillas
+  final salidaGrandes = TextEditingController();
+  final salidaMedianas = TextEditingController();
+  final salidaPequenas = TextEditingController();
+  // Controladores para entrada de canastillas
+  final entradaGrandes = TextEditingController();
+  final entradaMedianas = TextEditingController();
+  final entradaPequenas = TextEditingController();
+
+  // Cargar el registro actual del día para el vehículo seleccionado, si existe
+  Future<void> cargarRegistroHoy() async {
+    if (vehiculoSeleccionado == null) return;
+    // Obtenemos la fecha actual en formato YYYY-MM-DD
+    final hoy = DateTime.now().toIso8601String().substring(0, 10);
+    final data = await Supabase.instance.client
+        .from('control_canastillas')
+        .select()
+        .eq('vehiculo', vehiculoSeleccionado!['placa'])
+        .eq('fecha', hoy)
+        .maybeSingle();
+    setState(() {
+      registroActual = data;
+      if (data != null) {
+        // Prefill the controllers with existing data
+        salidaGrandes.text = data['salida_grandes']?.toString() ?? '';
+        salidaMedianas.text = data['salida_medianas']?.toString() ?? '';
+        salidaPequenas.text = data['salida_pequenas']?.toString() ?? '';
+        entradaGrandes.text = data['entrada_grandes']?.toString() ?? '';
+        entradaMedianas.text = data['entrada_medianas']?.toString() ?? '';
+        entradaPequenas.text = data['entrada_pequenas']?.toString() ?? '';
+      } else {
+        // Limpiar campos si no hay registro
+        salidaGrandes.clear();
+        salidaMedianas.clear();
+        salidaPequenas.clear();
+        entradaGrandes.clear();
+        entradaMedianas.clear();
+        entradaPequenas.clear();
+      }
+    });
+  }
+
+  // Guardar solo las canastillas de salida (intermedio)
+  Future<void> guardarSalida() async {
+    if (vehiculoSeleccionado == null ||
+        salidaGrandes.text.isEmpty ||
+        salidaMedianas.text.isEmpty ||
+        salidaPequenas.text.isEmpty) return;
+    final hoy = DateTime.now().toIso8601String().substring(0, 10);
+    if (registroActual == null) {
+      // Insertar nuevo registro con salidas y entradas en cero
+      await Supabase.instance.client.from('control_canastillas').insert({
+        'vehiculo': vehiculoSeleccionado!['placa'],
+        'fecha': hoy,
+        'salida_grandes': int.parse(salidaGrandes.text),
+        'salida_medianas': int.parse(salidaMedianas.text),
+        'salida_pequenas': int.parse(salidaPequenas.text),
+        'entrada_grandes': 0,
+        'entrada_medianas': 0,
+        'entrada_pequenas': 0,
+      });
+    } else {
+      // Actualizar salidas del registro existente
+      await Supabase.instance.client
+          .from('control_canastillas')
+          .update({
+        'salida_grandes': int.parse(salidaGrandes.text),
+        'salida_medianas': int.parse(salidaMedianas.text),
+        'salida_pequenas': int.parse(salidaPequenas.text),
+      }).eq('id', registroActual!['id']);
+    }
+    // Mostrar mensaje y recargar el registro
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Salidas guardadas (intermedio)")),
+    );
+    await cargarRegistroHoy();
+  }
+
+  // Guardar definitivo (salida y entrada) en el registro
+  Future<void> guardarDefinitivo() async {
+    if (vehiculoSeleccionado == null ||
+        salidaGrandes.text.isEmpty ||
+        salidaMedianas.text.isEmpty ||
+        salidaPequenas.text.isEmpty ||
+        entradaGrandes.text.isEmpty ||
+        entradaMedianas.text.isEmpty ||
+        entradaPequenas.text.isEmpty) return;
+    final hoy = DateTime.now().toIso8601String().substring(0, 10);
+    if (registroActual == null) {
+      // Insertar nuevo registro con salidas y entradas
+      await Supabase.instance.client.from('control_canastillas').insert({
+        'vehiculo': vehiculoSeleccionado!['placa'],
+        'fecha': hoy,
+        'salida_grandes': int.parse(salidaGrandes.text),
+        'salida_medianas': int.parse(salidaMedianas.text),
+        'salida_pequenas': int.parse(salidaPequenas.text),
+        'entrada_grandes': int.parse(entradaGrandes.text),
+        'entrada_medianas': int.parse(entradaMedianas.text),
+        'entrada_pequenas': int.parse(entradaPequenas.text),
+      });
+    } else {
+      // Actualizar salidas y entradas del registro existente
+      await Supabase.instance.client
+          .from('control_canastillas')
+          .update({
+        'salida_grandes': int.parse(salidaGrandes.text),
+        'salida_medianas': int.parse(salidaMedianas.text),
+        'salida_pequenas': int.parse(salidaPequenas.text),
+        'entrada_grandes': int.parse(entradaGrandes.text),
+        'entrada_medianas': int.parse(entradaMedianas.text),
+        'entrada_pequenas': int.parse(entradaPequenas.text),
+      }).eq('id', registroActual!['id']);
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Registro definitivo guardado")),
+    );
+    await cargarRegistroHoy();
+  }
 
   @override
   void initState() {
@@ -256,30 +373,13 @@ class _CanastasTabState extends State<CanastasTab> {
     });
   }
 
+  /// Este método se eliminó en favor de guardarSalida y guardarDefinitivo.
+  /// La lógica de registro se divide ahora en dos pasos: un guardado
+  /// intermedio para las salidas y un guardado definitivo para salidas
+  /// y entradas. Mantener este método vacío evita referencias
+  /// accidentalmente sin romper la API interna.
   Future<void> guardarCanastas() async {
-    if (vehiculoSeleccionado == null ||
-        grandes.text.isEmpty ||
-        medianas.text.isEmpty ||
-        pequenas.text.isEmpty) return;
-
-    await Supabase.instance.client.from('canastas_vehiculo').insert({
-      'vehiculo': vehiculoSeleccionado!['placa'],
-      'canastas_grandes': int.parse(grandes.text),
-      'canastas_medianas': int.parse(medianas.text),
-      'canastas_pequenas': int.parse(pequenas.text),
-      'fecha': DateTime.now().toIso8601String(),
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Guardado correctamente")),
-    );
-
-    grandes.clear();
-    medianas.clear();
-    pequenas.clear();
-    setState(() {
-      vehiculoSeleccionado = null;
-    });
+    // Intencionalmente vacío. Use guardarSalida() o guardarDefinitivo().
   }
 
   @override
@@ -297,31 +397,91 @@ class _CanastasTabState extends State<CanastasTab> {
                 child: Text("${v['ruta']} - ${v['placa']}"),
               );
             }).toList(),
-            onChanged: (value) {
+            onChanged: (value) async {
               setState(() {
                 vehiculoSeleccionado = value;
               });
+              await cargarRegistroHoy();
             },
           ),
-          TextField(
-            controller: grandes,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: "Grandes"),
+          const SizedBox(height: 10),
+
+          // Sección de salida de canastillas
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              "Salida",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
           TextField(
-            controller: medianas,
+            controller: salidaGrandes,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: "Medianas"),
+            decoration: const InputDecoration(
+              labelText: "Grandes (salida)",
+            ),
           ),
           TextField(
-            controller: pequenas,
+            controller: salidaMedianas,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: "Pequeñas"),
+            decoration: const InputDecoration(
+              labelText: "Medianas (salida)",
+            ),
+          ),
+          TextField(
+            controller: salidaPequenas,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: "Pequeñas (salida)",
+            ),
+          ),
+          const SizedBox(height: 10),
+          // Sección de entrada de canastillas
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              "Entrada",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          TextField(
+            controller: entradaGrandes,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: "Grandes (entrada)",
+            ),
+          ),
+          TextField(
+            controller: entradaMedianas,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: "Medianas (entrada)",
+            ),
+          ),
+          TextField(
+            controller: entradaPequenas,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: "Pequeñas (entrada)",
+            ),
           ),
           const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: guardarCanastas,
-            child: const Text("Guardar"),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: guardarSalida,
+                  child: const Text("Guardar salida"),
+                ),
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: guardarDefinitivo,
+                  child: const Text("Guardar definitivo"),
+                ),
+              ),
+            ],
           )
         ],
       ),
