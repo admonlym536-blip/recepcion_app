@@ -15,7 +15,9 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
   final supabase = Supabase.instance.client;
 
   final planillaController = TextEditingController();
-  final placaController = TextEditingController();
+
+  Map<String, dynamic>? vehiculoSeleccionado;
+  List<Map<String, dynamic>> vehiculos = [];
 
   final currencyFormat =
       NumberFormat.currency(locale: 'es_CO', symbol: '\$');
@@ -23,10 +25,22 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
   bool iniciado = false;
   bool loading = false;
 
-  // 🔥 CAMBIO
   String tipoSeleccionado = 'devolucion buena';
 
   List<Map<String, dynamic>> productos = [];
+
+  @override
+  void initState() {
+    super.initState();
+    cargarVehiculos();
+  }
+
+  Future<void> cargarVehiculos() async {
+    final data = await supabase.from('vehiculos').select();
+    setState(() {
+      vehiculos = List<Map<String, dynamic>>.from(data);
+    });
+  }
 
   Future<int?> pedirCantidad(String nombre) async {
     final controller = TextEditingController(text: '1');
@@ -183,7 +197,6 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
             s + ((p['precio'] as num) * (p['cantidad'] as int)),
       );
 
-  // 🔥 CAMBIO
   double get totalDevolucionBuena => productos
       .where((p) => p['tipo'] == 'devolucion buena')
       .fold(
@@ -209,9 +222,9 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
     }
 
     if (planillaController.text.isEmpty ||
-        placaController.text.isEmpty) {
+        vehiculoSeleccionado == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Completa planilla y placa')),
+        const SnackBar(content: Text('Completa planilla y vehículo')),
       );
       return;
     }
@@ -223,10 +236,9 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
           .from('recepciones')
           .insert({
             'planilla': planillaController.text,
-            'placa': placaController.text,
+            'placa': vehiculoSeleccionado!['placa'],
             'usuario': Supabase.instance.client.auth.currentUser?.email,
             'total': total,
-            // 🔥 CAMBIO
             'total_devolucion_buena': totalDevolucionBuena,
             'total_averias': totalAverias,
             'created_at': DateTime.now().toIso8601String(),
@@ -268,7 +280,6 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
   @override
   void dispose() {
     planillaController.dispose();
-    placaController.dispose();
     super.dispose();
   }
 
@@ -394,15 +405,28 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
                     decoration: const InputDecoration(labelText: 'Planilla'),
                   ),
                   const SizedBox(height: 10),
-                  TextField(
-                    controller: placaController,
-                    decoration: const InputDecoration(labelText: 'Placa'),
+
+                  DropdownButtonFormField<Map<String, dynamic>>(
+                    hint: const Text("Seleccionar vehículo"),
+                    items: vehiculos.map((v) {
+                      return DropdownMenuItem(
+                        value: v,
+                        child: Text("${v['ruta']} - ${v['placa']}"),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        vehiculoSeleccionado = value;
+                      });
+                    },
                   ),
+
                   const SizedBox(height: 20),
+
                   ElevatedButton(
                     onPressed: () {
                       if (planillaController.text.isEmpty ||
-                          placaController.text.isEmpty) {
+                          vehiculoSeleccionado == null) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Completa los datos')),
                         );

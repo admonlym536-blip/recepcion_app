@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'nueva_recepcion_screen.dart';
 import 'detalle_recepcion_screen.dart';
+import 'control_salida_page.dart';
+import 'historial_salida_page.dart'; // 🔥 NUEVO
 
 class ListaRecepcionesScreen extends StatefulWidget {
   const ListaRecepcionesScreen({super.key});
@@ -77,7 +79,6 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
           final totalGeneral = recepciones.fold(
               0.0, (sum, r) => sum + (r['total'] ?? 0));
 
-          // 🔥 CORREGIDO
           final totalDevolucionBuena = recepciones.fold(
               0.0, (sum, r) => sum + (r['total_devolucion_buena'] ?? 0));
 
@@ -86,6 +87,62 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
 
           return Column(
             children: [
+              const SizedBox(height: 10),
+
+              // 🔥 BOTONES NUEVOS
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 15),
+                child: Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueGrey,
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 15),
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  const ControlSalidaPage(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.local_shipping),
+                        label: const Text("Control de Salida"),
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 15),
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  const HistorialSalidaPage(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.bar_chart),
+                        label: const Text("Ver Salidas"),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
               const SizedBox(height: 10),
 
               Padding(
@@ -116,10 +173,7 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
                     padding: const EdgeInsets.all(20),
                     child: Column(
                       children: [
-                        const Text(
-                          "Total General",
-                          style: TextStyle(fontSize: 16),
-                        ),
+                        const Text("Total General"),
                         const SizedBox(height: 10),
                         Text(
                           currencyFormat.format(totalGeneral),
@@ -137,7 +191,6 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
 
               const SizedBox(height: 8),
 
-              // 🔥 KPI CORREGIDO
               Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 15),
@@ -146,7 +199,8 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
                     Expanded(
                       child: _cardKPI(
                         "Devolución buena",
-                        currencyFormat.format(totalDevolucionBuena),
+                        currencyFormat
+                            .format(totalDevolucionBuena),
                         color: Colors.green,
                       ),
                     ),
@@ -173,11 +227,8 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
                           final r = recepciones[index];
 
                           final total = r['total'] ?? 0;
-
-                          // 🔥 CORREGIDO
                           final devolucionBuena =
                               r['total_devolucion_buena'] ?? 0;
-
                           final averias =
                               r['total_averias'] ?? 0;
 
@@ -219,14 +270,12 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
                                     'Placa: ${r['placa']}'),
                                 trailing: Column(
                                   mainAxisAlignment:
-                                      MainAxisAlignment
-                                          .center,
+                                      MainAxisAlignment.center,
                                   crossAxisAlignment:
                                       CrossAxisAlignment.end,
                                   children: [
                                     Text(
-                                      currencyFormat
-                                          .format(total),
+                                      currencyFormat.format(total),
                                       style:
                                           const TextStyle(
                                         fontWeight:
