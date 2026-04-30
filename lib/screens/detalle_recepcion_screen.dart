@@ -31,50 +31,174 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
   }
 
   Future<void> cargarDetalle() async {
-    try {
-      final data = await supabase
-          .from('recepcion_detalle')
-          .select()
-          .eq('recepcion_id', widget.recepcion['id']);
+    final data = await supabase
+        .from('recepcion_detalle')
+        .select()
+        .eq('recepcion_id', widget.recepcion['id']);
 
-      setState(() {
-        detalles = data;
-        loading = false;
-      });
-    } catch (e) {
-      debugPrint(e.toString());
-      setState(() => loading = false);
-    }
+    setState(() {
+      detalles = data;
+      loading = false;
+    });
   }
 
-  List<Map<String, dynamic>> agruparProductos(List datos) {
-    final Map<String, Map<String, dynamic>> mapa = {};
+  Future<void> editarCantidad(Map item) async {
+    final controller =
+        TextEditingController(text: item['cantidad'].toString());
 
-    for (var d in datos) {
-      final key = "${d['codigo']}_${d['tipo']}";
+    final nuevaCantidad = await showDialog<int>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(item['nombre']),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'Nueva cantidad'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar')),
+          ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context,
+                    int.tryParse(controller.text) ?? item['cantidad']);
+              },
+              child: const Text('Guardar'))
+        ],
+      ),
+    );
 
-      if (mapa.containsKey(key)) {
-        mapa[key]!['cantidad'] += (d['cantidad'] ?? 0);
-      } else {
-        mapa[key] = {
-          'nombre': d['nombre'],
-          'cantidad': d['cantidad'],
-          'precio': d['precio'],
-          'tipo': d['tipo'],
-        };
-      }
+    if (nuevaCantidad == null) return;
+
+    await supabase
+        .from('recepcion_detalle')
+        .update({'cantidad': nuevaCantidad}).eq('id', item['id']);
+
+    cargarDetalle();
+  }
+
+  Future<void> agregarProducto() async {
+    final skuController = TextEditingController();
+    final cantidadController = TextEditingController(text: '1');
+
+    String tipo = 'devolucion buena';
+    String nombreProducto = '';
+
+    final result = await showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text('Agregar producto'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: skuController,
+                  decoration: const InputDecoration(labelText: 'SKU'),
+                  onChanged: (value) async {
+                    final producto = await supabase
+                        .from('productos')
+                        .select()
+                        .or('sku.eq.' + value + ',codigo.eq.' + value)
+                        .maybeSingle();
+
+                    if (producto != null) {
+                      setStateDialog(() {
+                        nombreProducto = producto['nombre'];
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  nombreProducto.isEmpty
+                      ? 'Producto no identificado'
+                      : nombreProducto,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, color: Colors.blue),
+                ),
+                TextField(
+                  controller: cantidadController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Cantidad'),
+                ),
+                DropdownButtonFormField(
+                  initialValue: tipo,
+                  items: const [
+                    DropdownMenuItem(
+                        value: 'devolucion buena',
+                        child: Text('Devolución buena')),
+                    DropdownMenuItem(
+                        value: 'averia', child: Text('Avería')),
+                    DropdownMenuItem(
+                        value: 'dev_mal_manejo',
+                        child: Text('Dev x mal estado')),
+                  ],
+                  onChanged: (v) => tipo = v!,
+                )
+              ],
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar')),
+              ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context, {
+                      'sku': skuController.text,
+                      'cantidad': int.tryParse(cantidadController.text) ?? 1,
+                      'tipo': tipo
+                    });
+                  },
+                  child: const Text('Agregar'))
+            ],
+          );
+        },
+      ),
+    );
+
+    if (result == null) return;
+
+    final producto = await supabase
+        .from('productos')
+        .select()
+        .or('sku.eq.${result['sku']},codigo.eq.${result['sku']}')
+        .maybeSingle();
+
+    if (producto == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Producto no encontrado')),
+      );
+      return;
     }
 
-    return mapa.values.toList();
+    await supabase.from('recepcion_detalle').insert({
+      'recepcion_id': widget.recepcion['id'],
+      'codigo': producto['codigo'],
+      'nombre': producto['nombre'],
+      'cantidad': result['cantidad'],
+      'precio': producto['precio'],
+      'tipo': result['tipo'],
+    });
+
+    cargarDetalle();
   }
 
   @override
   Widget build(BuildContext context) {
     final r = widget.recepcion;
-    final agrupados = agruparProductos(detalles);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Detalle Recepción')),
+
+      floatingActionButton: FloatingActionButton(
+        onPressed: agregarProducto,
+        backgroundColor: Colors.green,
+        child: const Icon(Icons.add),
+      ),
 
       body: loading
           ? const Center(child: CircularProgressIndicator())
@@ -99,18 +223,20 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
                         const SizedBox(height: 5),
                         Row(
                           mainAxisAlignment:
-                              MainAxisAlignment.spaceAround,
+                              MainAxisAlignment.spaceBetween,
                           children: [
-                            // 🔥 CAMBIO AQUÍ
-                            Text(
-                              "Devolución buena: ${currencyFormat.format(r['total_devolucion_buena'] ?? 0)}",
-                              style: const TextStyle(
-                                  color: Colors.green),
+                            Expanded(
+                              child: Text(
+                                'Devolución buena: ${currencyFormat.format(r['total_devolucion_buena'] ?? 0)}',
+                                style: const TextStyle(color: Colors.green),
+                              ),
                             ),
-                            Text(
-                              "Averías: ${currencyFormat.format(r['total_averias'] ?? 0)}",
-                              style: const TextStyle(
-                                  color: Colors.red),
+                            Expanded(
+                              child: Text(
+                                'Averías: ${currencyFormat.format(r['total_averias'] ?? 0)}',
+                                style: const TextStyle(color: Colors.red),
+                                textAlign: TextAlign.end,
+                              ),
                             ),
                           ],
                         ),
@@ -119,96 +245,38 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
                   ),
                 ),
 
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  margin: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Row(
-                    children: const [
-                      Expanded(
-                          flex: 4,
-                          child: Text("Producto",
-                              style:
-                                  TextStyle(fontWeight: FontWeight.bold))),
-                      Expanded(
-                          flex: 2,
-                          child: Text("Cant",
-                              textAlign: TextAlign.center)),
-                      Expanded(
-                          flex: 2,
-                          child: Text("Tipo",
-                              textAlign: TextAlign.center)),
-                      Expanded(
-                          flex: 3,
-                          child: Text("Total",
-                              textAlign: TextAlign.end)),
-                    ],
-                  ),
-                ),
-
                 Expanded(
-                  child: agrupados.isEmpty
-                      ? const Center(child: Text("Sin productos"))
-                      : ListView.builder(
-                          itemCount: agrupados.length,
-                          itemBuilder: (_, i) {
-                            final d = agrupados[i];
+                  child: ListView.builder(
+                    itemCount: detalles.length,
+                    itemBuilder: (_, i) {
+                      final d = detalles[i];
 
-                            return Card(
-                              margin: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 5),
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 4,
-                                      child: Text(
-                                        d['nombre'],
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
+                      final esAveria = d['tipo'] == 'averia';
 
-                                    Expanded(
-                                      flex: 2,
-                                      child: Text(
-                                        "${d['cantidad']}",
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ),
-
-                                    Expanded(
-                                      flex: 2,
-                                      child: Text(
-                                        d['tipo'] == 'devolucion buena'
-                                            ? 'Devolución buena'
-                                            : d['tipo'],
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: d['tipo'] == 'averia'
-                                              ? Colors.red
-                                              : Colors.green,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-
-                                    Expanded(
-                                      flex: 3,
-                                      child: Text(
-                                        currencyFormat.format(
-                                          (d['precio'] ?? 0) *
-                                              (d['cantidad'] ?? 0),
-                                        ),
-                                        textAlign: TextAlign.end,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
+                      return Card(
+                        color: esAveria
+                            ? Colors.red.withOpacity(0.1)
+                            : Colors.green.withOpacity(0.1),
+                        child: ListTile(
+                          title: Text(
+                            d['nombre'],
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Text(
+                            "Cant: ${d['cantidad']} - ${d['tipo']}",
+                            style: TextStyle(
+                              color: esAveria ? Colors.red : Colors.green,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.blue),
+                            onPressed: () => editarCantidad(d),
+                          ),
                         ),
+                      );
+                    },
+                  ),
                 ),
               ],
             ),

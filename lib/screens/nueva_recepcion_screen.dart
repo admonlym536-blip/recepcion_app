@@ -198,7 +198,9 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
       );
 
   double get totalDevolucionBuena => productos
-      .where((p) => p['tipo'] == 'devolucion buena')
+      .where((p) =>
+          p['tipo'] == 'devolucion buena' ||
+          p['tipo'] == 'dev_mal_manejo')
       .fold(
         0,
         (s, p) =>
@@ -207,6 +209,14 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
 
   double get totalAverias => productos
       .where((p) => p['tipo'] == 'averia')
+      .fold(
+        0,
+        (s, p) =>
+            s + ((p['precio'] as num) * (p['cantidad'] as int)),
+      );
+
+  double get totalMalManejo => productos
+      .where((p) => p['tipo'] == 'dev_mal_manejo')
       .fold(
         0,
         (s, p) =>
@@ -241,6 +251,7 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
             'total': total,
             'total_devolucion_buena': totalDevolucionBuena,
             'total_averias': totalAverias,
+            'total_dev_mal_manejo': totalMalManejo,
             'created_at': DateTime.now().toIso8601String(),
           })
           .select()
@@ -288,23 +299,28 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Nueva Recepción')),
 
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+
       floatingActionButton: iniciado
-          ? Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                FloatingActionButton(
-                  heroTag: 'manual',
-                  onPressed: agregarManual,
-                  backgroundColor: Colors.blue,
-                  child: const Icon(Icons.edit),
-                ),
-                const SizedBox(width: 10),
-                FloatingActionButton(
-                  heroTag: 'scan',
-                  onPressed: escanear,
-                  child: const Icon(Icons.qr_code),
-                ),
-              ],
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 80, right: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  FloatingActionButton(
+                    heroTag: 'manual',
+                    onPressed: agregarManual,
+                    backgroundColor: Colors.blue,
+                    child: const Icon(Icons.edit),
+                  ),
+                  const SizedBox(width: 10),
+                  FloatingActionButton(
+                    heroTag: 'scan',
+                    onPressed: escanear,
+                    child: const Icon(Icons.qr_code),
+                  ),
+                ],
+              ),
             )
           : null,
 
@@ -337,6 +353,10 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
                                 "Averías: ${currencyFormat.format(totalAverias)}",
                                 style: const TextStyle(color: Colors.red),
                               ),
+                              Text(
+                                "Mal manejo: ${currencyFormat.format(totalMalManejo)}",
+                                style: const TextStyle(color: Colors.orange),
+                              ),
                             ],
                           ),
                         ],
@@ -355,6 +375,9 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
                           child: Text('Devolución buena')),
                       DropdownMenuItem(
                           value: 'averia', child: Text('Avería')),
+                      DropdownMenuItem(
+                          value: 'dev_mal_manejo',
+                          child: Text('Dev. buena x mal manejo')),
                     ],
                     onChanged: (v) =>
                         setState(() => tipoSeleccionado = v!),
