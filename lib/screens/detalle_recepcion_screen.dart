@@ -15,6 +15,7 @@ class DetalleRecepcionScreen extends StatefulWidget {
 class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
   final supabase = Supabase.instance.client;
 
+  late Map<String, dynamic> recepcionActual;
   List detalles = [];
   bool loading = true;
 
@@ -27,6 +28,7 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
   @override
   void initState() {
     super.initState();
+    recepcionActual = Map<String, dynamic>.from(widget.recepcion);
     cargarDetalle();
   }
 
@@ -35,6 +37,8 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
         .from('recepcion_detalle')
         .select()
         .eq('recepcion_id', widget.recepcion['id']);
+
+    await recalcularTotalesRecepcion(silent: true);
 
     setState(() {
       detalles = data;
@@ -75,7 +79,8 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
         .from('recepcion_detalle')
         .update({'cantidad': nuevaCantidad}).eq('id', item['id']);
 
-    cargarDetalle();
+    await recalcularTotalesRecepcion();
+    await cargarDetalle();
   }
 
   Future<void> agregarProducto() async {
@@ -101,7 +106,7 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
                     final producto = await supabase
                         .from('productos')
                         .select()
-                        .or('sku.eq.' + value + ',codigo.eq.' + value)
+                        .or('sku.eq.$value,codigo.eq.$value')
                         .maybeSingle();
 
                     if (producto != null) {
@@ -184,12 +189,65 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
       'tipo': result['tipo'],
     });
 
-    cargarDetalle();
+    await recalcularTotalesRecepcion();
+    await cargarDetalle();
+  }
+
+  Future<void> recalcularTotalesRecepcion({bool silent = false}) async {
+    final data = await supabase
+        .from('recepcion_detalle')
+        .select('cantidad, precio, tipo')
+        .eq('recepcion_id', widget.recepcion['id']);
+
+    double totalGeneral = 0;
+    double totalDevolucionBuena = 0;
+    double totalAverias = 0;
+    double totalMalManejo = 0;
+
+    for (final row in data) {
+      final cantidad = (row['cantidad'] as num?) ?? 0;
+      final precio = (row['precio'] as num?) ?? 0;
+      final subtotal = cantidad * precio;
+      final tipo = (row['tipo'] ?? '').toString();
+
+      totalGeneral += subtotal;
+
+      if (tipo == 'averia') {
+        totalAverias += subtotal;
+      } else if (tipo == 'dev_mal_manejo') {
+        totalMalManejo += subtotal;
+      } else if (tipo == 'devolucion buena') {
+        totalDevolucionBuena += subtotal;
+      }
+    }
+
+    await supabase.from('recepciones').update({
+      'total': totalGeneral,
+      'total_devolucion_buena': totalDevolucionBuena,
+      'total_averias': totalAverias,
+      'total_dev_mal_manejo': totalMalManejo,
+    }).eq('id', widget.recepcion['id']);
+
+    if (!silent) {
+      await supabase
+          .from('recepciones')
+          .select(
+              'total, total_devolucion_buena, total_averias, total_dev_mal_manejo')
+          .eq('id', widget.recepcion['id'])
+          .single();
+    }
+
+    setState(() {
+      recepcionActual['total'] = totalGeneral;
+      recepcionActual['total_devolucion_buena'] = totalDevolucionBuena;
+      recepcionActual['total_averias'] = totalAverias;
+      recepcionActual['total_dev_mal_manejo'] = totalMalManejo;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final r = widget.recepcion;
+    final r = recepcionActual;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Detalle Recepción')),
@@ -255,8 +313,8 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
 
                       return Card(
                         color: esAveria
-                            ? Colors.red.withOpacity(0.1)
-                            : Colors.green.withOpacity(0.1),
+                            ? Colors.red.withValues(alpha: 0.1)
+                            : Colors.green.withValues(alpha: 0.1),
                         child: ListTile(
                           title: Text(
                             d['nombre'],

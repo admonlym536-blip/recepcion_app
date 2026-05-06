@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import 'nueva_recepcion_screen.dart';
 import 'detalle_recepcion_screen.dart';
 import 'control_salida_page.dart';
-import 'historial_salida_page.dart'; // 🔥 NUEVO
+import 'historial_salida_page.dart';
 
 class ListaRecepcionesScreen extends StatefulWidget {
   const ListaRecepcionesScreen({super.key});
@@ -18,12 +18,11 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
   final supabase = Supabase.instance.client;
 
   DateTime fechaSeleccionada = DateTime.now();
-
   final Color azulPrincipal = const Color(0xFF0A2A5E);
 
   final currencyFormat = NumberFormat.currency(
     locale: 'es_CO',
-    symbol: '\$',
+    symbol: '\$ ',
     decimalDigits: 0,
   );
 
@@ -56,14 +55,16 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-
+      backgroundColor: const Color(0xFFF4F6FB),
       appBar: AppBar(
         backgroundColor: azulPrincipal,
-        title: const Text('Recepción L&M'),
+        elevation: 0,
+        title: const Text(
+          'Recepción L&M',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
         centerTitle: true,
       ),
-
       body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: getRecepcionesStream(),
         builder: (context, snapshot) {
@@ -76,85 +77,81 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
             return esMismaFecha(fecha);
           }).toList();
 
-          final totalGeneral = recepciones.fold(
-              0.0, (sum, r) => sum + (r['total'] ?? 0));
+          num totalGeneral = 0;
+          num totalDevolucionBuena = 0;
+          num totalAverias = 0;
+          num totalMalManejo = 0;
 
-          final totalDevolucionBuena = recepciones.fold(
-              0.0, (sum, r) => sum + (r['total_devolucion_buena'] ?? 0));
+          for (final r in recepciones) {
+            final devolucion = (r['total_devolucion_buena'] as num?) ?? 0;
+            final averias = (r['total_averias'] as num?) ?? 0;
+            final malManejo = (r['total_dev_mal_manejo'] as num?) ?? 0;
+            final totalGuardado = (r['total'] as num?) ?? 0;
 
-          final totalAverias = recepciones.fold(
-              0.0, (sum, r) => sum + (r['total_averias'] ?? 0));
+            final totalCalculado = devolucion + averias + malManejo;
+            final totalSeguro = totalGuardado > 0 ? totalGuardado : totalCalculado;
+
+            totalGeneral += totalSeguro;
+            totalDevolucionBuena += devolucion;
+            totalAverias += averias;
+            totalMalManejo += malManejo;
+          }
 
           return Column(
             children: [
-              const SizedBox(height: 10),
-
-              // 🔥 BOTONES NUEVOS
+              const SizedBox(height: 12),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 15),
-                child: Column(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Row(
                   children: [
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blueGrey,
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 15),
-                        ),
+                    Expanded(
+                      child: _actionButton(
+                        color: const Color(0xFF607D8B),
+                        icon: Icons.local_shipping,
+                        label: 'Control de Salida',
                         onPressed: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) =>
-                                  const ControlSalidaPage(),
+                              builder: (_) => const ControlSalidaPage(),
                             ),
                           );
                         },
-                        icon: const Icon(Icons.local_shipping),
-                        label: const Text("Control de Salida"),
                       ),
                     ),
-
-                    const SizedBox(height: 8),
-
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 15),
-                        ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _actionButton(
+                        color: const Color(0xFF2E7D32),
+                        icon: Icons.bar_chart,
+                        label: 'Ver Salidas',
                         onPressed: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) =>
-                                  const HistorialSalidaPage(),
+                              builder: (_) => const HistorialSalidaPage(),
                             ),
                           );
                         },
-                        icon: const Icon(Icons.bar_chart),
-                        label: const Text("Ver Salidas"),
                       ),
                     ),
                   ],
                 ),
               ),
-
               const SizedBox(height: 10),
-
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 15),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: Card(
+                  elevation: 1.5,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                   child: ListTile(
-                    leading:
-                        Icon(Icons.calendar_today, color: azulPrincipal),
+                    leading: Icon(Icons.calendar_today, color: azulPrincipal),
                     title: const Text("Fecha seleccionada"),
                     subtitle: Text(
-                      DateFormat('dd/MM/yyyy')
-                          .format(fechaSeleccionada),
+                      DateFormat('dd/MM/yyyy').format(fechaSeleccionada),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     trailing: IconButton(
                       icon: const Icon(Icons.edit_calendar),
@@ -163,142 +160,204 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 10),
-
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 15),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: Card(
+                  elevation: 2,
+                  color: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   child: Padding(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 16,
+                    ),
                     child: Column(
                       children: [
-                        const Text("Total General"),
-                        const SizedBox(height: 10),
+                        const Text(
+                          "Total General del Día",
+                          style: TextStyle(
+                            color: Colors.black54,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
                         Text(
                           currencyFormat.format(totalGeneral),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 30,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0A2A5E),
+                            fontWeight: FontWeight.w800,
+                            color: azulPrincipal,
                           ),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _miniChip(
+                              "Devolución buena",
+                              currencyFormat.format(totalDevolucionBuena),
+                              const Color(0xFF2E7D32),
+                            ),
+                            _miniChip(
+                              "Averías",
+                              currencyFormat.format(totalAverias),
+                              const Color(0xFFC62828),
+                            ),
+                            _miniChip(
+                              "Mal manejo",
+                              currencyFormat.format(totalMalManejo),
+                              const Color(0xFFEF6C00),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
                 ),
               ),
-
               const SizedBox(height: 8),
-
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 15),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _cardKPI(
-                        "Devolución buena",
-                        currencyFormat
-                            .format(totalDevolucionBuena),
-                        color: Colors.green,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _cardKPI(
-                        "Averías",
-                        currencyFormat.format(totalAverias),
-                        color: Colors.red,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
               Expanded(
                 child: recepciones.isEmpty
                     ? _emptyState()
                     : ListView.builder(
+                        padding: const EdgeInsets.only(bottom: 90),
                         itemCount: recepciones.length,
                         itemBuilder: (context, index) {
                           final r = recepciones[index];
 
-                          final total = r['total'] ?? 0;
                           final devolucionBuena =
-                              r['total_devolucion_buena'] ?? 0;
-                          final averias =
-                              r['total_averias'] ?? 0;
+                              (r['total_devolucion_buena'] as num?) ?? 0;
+                          final averias = (r['total_averias'] as num?) ?? 0;
+                          final malManejo =
+                              (r['total_dev_mal_manejo'] as num?) ?? 0;
+                          final totalGuardado = (r['total'] as num?) ?? 0;
+                          final totalCalculado =
+                              devolucionBuena + averias + malManejo;
+                          final total =
+                              totalGuardado > 0 ? totalGuardado : totalCalculado;
 
-                          final colorTipo = averias > 0
-                              ? Colors.red
-                              : Colors.green;
+                          final Color colorTipo = averias > 0
+                              ? const Color(0xFFC62828)
+                              : (malManejo > 0
+                                  ? const Color(0xFFEF6C00)
+                                  : const Color(0xFF2E7D32));
 
                           return Padding(
-                            padding:
-                                const EdgeInsets.symmetric(
-                                    horizontal: 15,
-                                    vertical: 5),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 5,
+                            ),
                             child: Card(
-                              child: ListTile(
+                              elevation: 1.5,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(14),
                                 onTap: () {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                       builder: (_) =>
-                                          DetalleRecepcionScreen(
-                                              recepcion: r),
+                                          DetalleRecepcionScreen(recepcion: r),
                                     ),
                                   );
                                 },
-                                leading: CircleAvatar(
-                                  backgroundColor: colorTipo,
-                                  child: const Icon(
-                                    Icons.local_shipping,
-                                    color: Colors.white,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 22,
+                                        backgroundColor:
+                                            colorTipo.withValues(alpha: 0.15),
+                                        child: Icon(
+                                          Icons.local_shipping,
+                                          color: colorTipo,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Planilla ${r['planilla']}',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w800,
+                                                fontSize: 15,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Placa: ${r['placa']}',
+                                              style: const TextStyle(
+                                                color: Colors.black54,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Wrap(
+                                              spacing: 6,
+                                              runSpacing: 6,
+                                              children: [
+                                                _tagMonto(
+                                                  "D",
+                                                  currencyFormat
+                                                      .format(devolucionBuena),
+                                                  const Color(0xFF2E7D32),
+                                                ),
+                                                _tagMonto(
+                                                  "A",
+                                                  currencyFormat.format(averias),
+                                                  const Color(0xFFC62828),
+                                                ),
+                                                _tagMonto(
+                                                  "M",
+                                                  currencyFormat
+                                                      .format(malManejo),
+                                                  const Color(0xFFEF6C00),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          const Text(
+                                            'Total',
+                                            style: TextStyle(
+                                              color: Colors.black45,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          Text(
+                                            currencyFormat.format(total),
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w900,
+                                              color: azulPrincipal,
+                                              fontSize: 15,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          const Icon(
+                                            Icons.chevron_right,
+                                            color: Colors.black38,
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
-                                ),
-                                title: Text(
-                                  'Planilla: ${r['planilla']}',
-                                  style: const TextStyle(
-                                      fontWeight:
-                                          FontWeight.bold),
-                                ),
-                                subtitle: Text(
-                                    'Placa: ${r['placa']}'),
-                                trailing: Column(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.center,
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      currencyFormat.format(total),
-                                      style:
-                                          const TextStyle(
-                                        fontWeight:
-                                            FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      "D: ${currencyFormat.format(devolucionBuena)}",
-                                      style:
-                                          const TextStyle(
-                                        color: Colors.green,
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                    Text(
-                                      "A: ${currencyFormat.format(averias)}",
-                                      style:
-                                          const TextStyle(
-                                        color: Colors.red,
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                  ],
                                 ),
                               ),
                             ),
@@ -310,40 +369,79 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
           );
         },
       ),
-
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         backgroundColor: azulPrincipal,
         onPressed: () async {
           await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) =>
-                  const NuevaRecepcionScreen(),
+              builder: (_) => const NuevaRecepcionScreen(),
             ),
           );
         },
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text("Nueva"),
       ),
     );
   }
 
-  Widget _cardKPI(String titulo, String valor,
-      {Color color = Colors.black}) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Text(titulo),
-            const SizedBox(height: 5),
-            Text(
-              valor,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-          ],
+  Widget _actionButton({
+    required Color color,
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      height: 48,
+      child: ElevatedButton.icon(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          elevation: 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18),
+        label: Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+        ),
+      ),
+    );
+  }
+
+  Widget _miniChip(String titulo, String valor, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        '$titulo: $valor',
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+
+  Widget _tagMonto(String prefijo, String valor, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        '$prefijo: $valor',
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: 11,
         ),
       ),
     );
@@ -351,7 +449,13 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
 
   Widget _emptyState() {
     return const Center(
-      child: Text("No hay datos"),
+      child: Text(
+        "No hay recepciones para esta fecha",
+        style: TextStyle(
+          color: Colors.black54,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }
