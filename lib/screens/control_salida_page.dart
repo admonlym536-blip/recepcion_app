@@ -6,6 +6,24 @@ class ControlSalidaPage extends StatelessWidget {
   const ControlSalidaPage({super.key});
 
   @override
+  void dispose() {
+    codigoController.dispose();
+    cantidadController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void dispose() {
+    salidaGrandes.dispose();
+    salidaMedianas.dispose();
+    salidaPequenas.dispose();
+    entradaGrandes.dispose();
+    entradaMedianas.dispose();
+    entradaPequenas.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 2,
@@ -87,7 +105,9 @@ class _FaltantesTabState extends State<FaltantesTab> {
   }
 
   Future<void> guardarTodo() async {
-    if (vehiculoSeleccionado == null || listaFaltantes.isEmpty) return;
+    if (vehiculoSeleccionado == null || listaFaltantes.isEmpty) {
+      return;
+    }
 
     for (var item in listaFaltantes) {
       await Supabase.instance.client.from('faltantes_salida').insert({
@@ -96,6 +116,10 @@ class _FaltantesTabState extends State<FaltantesTab> {
         'vehiculo': vehiculoSeleccionado!['placa'],
         'fecha': DateTime.now().toIso8601String(),
       });
+    }
+
+    if (!mounted) {
+      return;
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -118,7 +142,9 @@ class _FaltantesTabState extends State<FaltantesTab> {
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(labelText: "SKU"),
             onChanged: (value) {
-              if (value.length >= 3) buscarProducto(value);
+              if (value.length >= 3) {
+                buscarProducto(value);
+              }
             },
           ),
 
@@ -133,7 +159,7 @@ class _FaltantesTabState extends State<FaltantesTab> {
           ),
 
           DropdownButtonFormField<Map<String, dynamic>>(
-            value: vehiculoSeleccionado,
+            initialValue: vehiculoSeleccionado,
             hint: const Text("Vehículo"),
             items: vehiculos.map((v) {
               return DropdownMenuItem(
@@ -153,7 +179,9 @@ class _FaltantesTabState extends State<FaltantesTab> {
           ElevatedButton(
             onPressed: () {
               if (codigoController.text.isEmpty ||
-                  cantidadController.text.isEmpty) return;
+                  cantidadController.text.isEmpty) {
+                return;
+              }
 
               final cantidad = int.parse(cantidadController.text);
               final subtotal = cantidad * precioProducto;
@@ -288,7 +316,9 @@ class _CanastasTabState extends State<CanastasTab> {
     if (vehiculoSeleccionado == null ||
         salidaGrandes.text.isEmpty ||
         salidaMedianas.text.isEmpty ||
-        salidaPequenas.text.isEmpty) return;
+        salidaPequenas.text.isEmpty) {
+      return;
+    }
     final hoy = DateTime.now().toIso8601String().substring(0, 10);
     if (registroActual == null) {
       // Insertar nuevo registro con salidas y entradas en cero
@@ -313,6 +343,10 @@ class _CanastasTabState extends State<CanastasTab> {
       }).eq('id', registroActual!['id']);
     }
     // Mostrar mensaje y recargar el registro
+    if (!mounted) {
+      return;
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Salidas guardadas (intermedio)")),
     );
@@ -327,7 +361,9 @@ class _CanastasTabState extends State<CanastasTab> {
         salidaPequenas.text.isEmpty ||
         entradaGrandes.text.isEmpty ||
         entradaMedianas.text.isEmpty ||
-        entradaPequenas.text.isEmpty) return;
+        entradaPequenas.text.isEmpty) {
+      return;
+    }
     final hoy = DateTime.now().toIso8601String().substring(0, 10);
     if (registroActual == null) {
       // Insertar nuevo registro con salidas y entradas
@@ -354,6 +390,10 @@ class _CanastasTabState extends State<CanastasTab> {
         'entrada_pequenas': int.parse(entradaPequenas.text),
       }).eq('id', registroActual!['id']);
     }
+    if (!mounted) {
+      return;
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Registro definitivo guardado")),
     );
@@ -389,7 +429,7 @@ class _CanastasTabState extends State<CanastasTab> {
       child: Column(
         children: [
           DropdownButtonFormField<Map<String, dynamic>>(
-            value: vehiculoSeleccionado,
+            initialValue: vehiculoSeleccionado,
             hint: const Text("Vehículo"),
             items: vehiculos.map((v) {
               return DropdownMenuItem(
