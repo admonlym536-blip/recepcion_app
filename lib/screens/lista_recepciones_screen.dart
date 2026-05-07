@@ -5,6 +5,7 @@ import 'nueva_recepcion_screen.dart';
 import 'detalle_recepcion_screen.dart';
 import 'control_salida_page.dart';
 import 'historial_salida_page.dart';
+import 'login_page.dart';
 
 class ListaRecepcionesScreen extends StatefulWidget {
   const ListaRecepcionesScreen({super.key});
@@ -36,6 +37,10 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
   Future<void> seleccionarFecha() async {
     final fecha = await showDatePicker(
       context: context,
+      locale: const Locale('es', 'ES'),
+      helpText: 'Seleccionar fecha',
+      cancelText: 'Cancelar',
+      confirmText: 'Aceptar',
       initialDate: fechaSeleccionada,
       firstDate: DateTime(2024),
       lastDate: DateTime(2100),
@@ -64,6 +69,23 @@ class _ListaRecepcionesScreenState extends State<ListaRecepcionesScreen> {
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: 'Cerrar sesión',
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await supabase.auth.signOut();
+              if (!mounted) return;
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const LoginPage(),
+                ),
+                (route) => false,
+              );
+            },
+          ),
+        ],
       ),
       body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: getRecepcionesStream(),

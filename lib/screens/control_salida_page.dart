@@ -1,27 +1,10 @@
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ControlSalidaPage extends StatelessWidget {
   const ControlSalidaPage({super.key});
-
-  @override
-  void dispose() {
-    codigoController.dispose();
-    cantidadController.dispose();
-    super.dispose();
-  }
-
-  @override
-  void dispose() {
-    salidaGrandes.dispose();
-    salidaMedianas.dispose();
-    salidaPequenas.dispose();
-    entradaGrandes.dispose();
-    entradaMedianas.dispose();
-    entradaPequenas.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,12 +12,21 @@ class ControlSalidaPage extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text("Control de Salida"),
-          bottom: const TabBar(
+          title: const Text(
+            "Control de Salida",
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          bottom: TabBar(
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white70,
-            indicatorColor: Colors.white,
-            tabs: [
+            indicator: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            indicatorPadding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            dividerColor: Colors.transparent,
+            tabs: const [
               Tab(text: "Faltantes"),
               Tab(text: "Canastas"),
             ],
@@ -72,6 +64,11 @@ class _FaltantesTabState extends State<FaltantesTab> {
   List<Map<String, dynamic>> listaFaltantes = [];
   String nombreProducto = "";
   double precioProducto = 0;
+  final currencyFormat = NumberFormat.currency(
+    locale: 'es_CO',
+    symbol: '\$',
+    decimalDigits: 0,
+  );
 
   @override
   void initState() {
@@ -132,80 +129,151 @@ class _FaltantesTabState extends State<FaltantesTab> {
   }
 
   @override
+  void dispose() {
+    codigoController.dispose();
+    cantidadController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final inputBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: Colors.grey.shade300),
+    );
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          TextField(
-            controller: codigoController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: "SKU"),
-            onChanged: (value) {
-              if (value.length >= 3) {
-                buscarProducto(value);
-              }
-            },
+          Card(
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: codigoController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: "SKU",
+                      prefixIcon: const Icon(Icons.qr_code_2),
+                      border: inputBorder,
+                      enabledBorder: inputBorder,
+                      focusedBorder: inputBorder.copyWith(
+                        borderSide: const BorderSide(
+                          color: Color(0xFF0A2A5E),
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                    onChanged: (value) {
+                      if (value.length >= 3) {
+                        buscarProducto(value);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  if (nombreProducto.isNotEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        "$nombreProducto - ${currencyFormat.format(precioProducto)}",
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: cantidadController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: "Cantidad",
+                      prefixIcon: const Icon(Icons.numbers),
+                      border: inputBorder,
+                      enabledBorder: inputBorder,
+                      focusedBorder: inputBorder.copyWith(
+                        borderSide: const BorderSide(
+                          color: Color(0xFF0A2A5E),
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<Map<String, dynamic>>(
+                    initialValue: vehiculoSeleccionado,
+                    hint: const Text("Vehículo"),
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.local_shipping_outlined),
+                      border: inputBorder,
+                      enabledBorder: inputBorder,
+                      focusedBorder: inputBorder.copyWith(
+                        borderSide: const BorderSide(
+                          color: Color(0xFF0A2A5E),
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                    items: vehiculos.map((v) {
+                      return DropdownMenuItem(
+                        value: v,
+                        child: Text("${v['ruta']} - ${v['placa']}"),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        vehiculoSeleccionado = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        if (codigoController.text.isEmpty ||
+                            cantidadController.text.isEmpty) {
+                          return;
+                        }
+
+                        final cantidad = int.tryParse(cantidadController.text);
+                        if (cantidad == null) {
+                          return;
+                        }
+                        final subtotal = cantidad * precioProducto;
+
+                        setState(() {
+                          listaFaltantes.add({
+                            'codigo': codigoController.text,
+                            'nombre': nombreProducto,
+                            'cantidad': cantidad,
+                            'precio': precioProducto,
+                            'subtotal': subtotal,
+                          });
+
+                          codigoController.clear();
+                          cantidadController.clear();
+                          nombreProducto = "";
+                          precioProducto = 0;
+                        });
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text("Agregar"),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-
-          if (nombreProducto.isNotEmpty)
-            Text("$nombreProducto - \$${precioProducto.toStringAsFixed(0)}",
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-
-          TextField(
-            controller: cantidadController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: "Cantidad"),
-          ),
-
-          DropdownButtonFormField<Map<String, dynamic>>(
-            initialValue: vehiculoSeleccionado,
-            hint: const Text("Vehículo"),
-            items: vehiculos.map((v) {
-              return DropdownMenuItem(
-                value: v,
-                child: Text("${v['ruta']} - ${v['placa']}"),
-              );
-            }).toList(),
-            onChanged: (value) {
-              setState(() {
-                vehiculoSeleccionado = value;
-              });
-            },
-          ),
-
           const SizedBox(height: 10),
-
-          ElevatedButton(
-            onPressed: () {
-              if (codigoController.text.isEmpty ||
-                  cantidadController.text.isEmpty) {
-                return;
-              }
-
-              final cantidad = int.parse(cantidadController.text);
-              final subtotal = cantidad * precioProducto;
-
-              listaFaltantes.add({
-                'codigo': codigoController.text,
-                'nombre': nombreProducto,
-                'cantidad': cantidad,
-                'precio': precioProducto,
-                'subtotal': subtotal,
-              });
-
-              setState(() {});
-
-              codigoController.clear();
-              cantidadController.clear();
-              nombreProducto = "";
-              precioProducto = 0;
-            },
-            child: const Text("Agregar"),
-          ),
-
-          const SizedBox(height: 10),
-
           Expanded(
             child: ListView.builder(
               itemCount: listaFaltantes.length,
@@ -213,14 +281,29 @@ class _FaltantesTabState extends State<FaltantesTab> {
                 final item = listaFaltantes[index];
 
                 return Card(
+                  elevation: 1.2,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                   child: ListTile(
-                    title: Text(item['nombre']),
+                    title: Text(
+                      item['nombre'],
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
                     subtitle: Text(
-                        "Cant: ${item['cantidad']} x \$${item['precio']}"),
+                      "Cant: ${item['cantidad']} x ${currencyFormat.format(item['precio'])}",
+                    ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text("\$${item['subtotal'].toStringAsFixed(0)}"),
+                        Text(
+                          currencyFormat.format(item['subtotal']),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF2E7D32),
+                          ),
+                        ),
                         IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
                           onPressed: () {
@@ -236,16 +319,31 @@ class _FaltantesTabState extends State<FaltantesTab> {
               },
             ),
           ),
-
-          Text(
-            "TOTAL: \$${totalGeneral.toStringAsFixed(0)}",
-            style: const TextStyle(
-                fontSize: 18, fontWeight: FontWeight.bold),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+            margin: const EdgeInsets.only(bottom: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0A2A5E).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              "TOTAL: ${currencyFormat.format(totalGeneral)}",
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0A2A5E),
+              ),
+            ),
           ),
-
-          ElevatedButton(
-            onPressed: guardarTodo,
-            child: const Text("Guardar todo"),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: guardarTodo,
+              icon: const Icon(Icons.save_outlined),
+              label: const Text("Guardar todo"),
+            ),
           )
         ],
       ),
@@ -280,7 +378,9 @@ class _CanastasTabState extends State<CanastasTab> {
 
   // Cargar el registro actual del día para el vehículo seleccionado, si existe
   Future<void> cargarRegistroHoy() async {
-    if (vehiculoSeleccionado == null) return;
+    if (vehiculoSeleccionado == null) {
+      return;
+    }
     // Obtenemos la fecha actual en formato YYYY-MM-DD
     final hoy = DateTime.now().toIso8601String().substring(0, 10);
     final data = await Supabase.instance.client

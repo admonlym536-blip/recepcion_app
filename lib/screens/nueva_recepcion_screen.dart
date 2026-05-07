@@ -296,11 +296,20 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final inputBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: Colors.grey.shade300),
+    );
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Nueva Recepción')),
-
+      backgroundColor: const Color(0xFFF4F6FB),
+      appBar: AppBar(
+        title: const Text(
+          'Nueva Recepción',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-
       floatingActionButton: iniciado
           ? Padding(
               padding: const EdgeInsets.only(bottom: 80, right: 10),
@@ -310,26 +319,30 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
                   FloatingActionButton(
                     heroTag: 'manual',
                     onPressed: agregarManual,
-                    backgroundColor: Colors.blue,
+                    backgroundColor: const Color(0xFF1565C0),
                     child: const Icon(Icons.edit),
                   ),
                   const SizedBox(width: 10),
                   FloatingActionButton(
                     heroTag: 'scan',
                     onPressed: escanear,
-                    child: const Icon(Icons.qr_code),
+                    backgroundColor: const Color(0xFF0A2A5E),
+                    child: const Icon(Icons.qr_code_scanner),
                   ),
                 ],
               ),
             )
           : null,
-
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: iniciado
             ? Column(
                 children: [
                   Card(
+                    elevation: 1.4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Column(
@@ -337,25 +350,30 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
                           Text(
                             "TOTAL: ${currencyFormat.format(total)}",
                             style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 18,
+                              color: Color(0xFF0A2A5E),
+                            ),
                           ),
-                          const SizedBox(height: 5),
-                          Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceAround,
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
                             children: [
-                              Text(
-                                "Devolución buena: ${currencyFormat.format(totalDevolucionBuena)}",
-                                style: const TextStyle(color: Colors.green),
+                              _chipMonto(
+                                "Devolución buena",
+                                currencyFormat.format(totalDevolucionBuena),
+                                Colors.green,
                               ),
-                              Text(
-                                "Averías: ${currencyFormat.format(totalAverias)}",
-                                style: const TextStyle(color: Colors.red),
+                              _chipMonto(
+                                "Averías",
+                                currencyFormat.format(totalAverias),
+                                Colors.red,
                               ),
-                              Text(
-                                "Mal manejo: ${currencyFormat.format(totalMalManejo)}",
-                                style: const TextStyle(color: Colors.orange),
+                              _chipMonto(
+                                "Mal manejo",
+                                currencyFormat.format(totalMalManejo),
+                                Colors.orange,
                               ),
                             ],
                           ),
@@ -363,41 +381,87 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 10),
-
                   DropdownButtonFormField(
                     initialValue: tipoSeleccionado,
-                    decoration: const InputDecoration(labelText: 'Tipo'),
+                    decoration: InputDecoration(
+                      labelText: 'Tipo',
+                      prefixIcon: const Icon(Icons.category_outlined),
+                      border: inputBorder,
+                      enabledBorder: inputBorder,
+                      focusedBorder: inputBorder.copyWith(
+                        borderSide: const BorderSide(
+                          color: Color(0xFF0A2A5E),
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
                     items: const [
                       DropdownMenuItem(
-                          value: 'devolucion buena',
-                          child: Text('Devolución buena')),
+                        value: 'devolucion buena',
+                        child: Text('Devolución buena'),
+                      ),
                       DropdownMenuItem(
-                          value: 'averia', child: Text('Avería')),
+                        value: 'averia',
+                        child: Text('Avería'),
+                      ),
                       DropdownMenuItem(
-                          value: 'dev_mal_manejo',
-                          child: Text('Dev. buena x mal manejo')),
+                        value: 'dev_mal_manejo',
+                        child: Text('Dev. buena x mal manejo'),
+                      ),
                     ],
-                    onChanged: (v) =>
-                        setState(() => tipoSeleccionado = v!),
+                    onChanged: (v) => setState(() => tipoSeleccionado = v!),
                   ),
-
                   const SizedBox(height: 10),
-
                   Expanded(
                     child: productos.isEmpty
-                        ? const Center(child: Text('Agrega productos'))
+                        ? const Center(
+                            child: Text(
+                              'Agrega productos',
+                              style: TextStyle(
+                                color: Colors.black54,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          )
                         : ListView.builder(
                             itemCount: productos.length,
                             itemBuilder: (_, i) {
                               final p = productos[i];
                               return Card(
+                                elevation: 1.2,
+                                margin: const EdgeInsets.only(bottom: 8),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
                                 child: ListTile(
-                                  title: Text(p['nombre']),
-                                  subtitle: Text("${p['cantidad']} - ${p['tipo']}"),
+                                  leading: CircleAvatar(
+                                    backgroundColor:
+                                        const Color(0xFF0A2A5E).withValues(
+                                      alpha: 0.10,
+                                    ),
+                                    child: const Icon(
+                                      Icons.inventory_2_outlined,
+                                      color: Color(0xFF0A2A5E),
+                                    ),
+                                  ),
+                                  title: Text(
+                                    p['nombre'],
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    "${p['cantidad']} - ${p['tipo']}",
+                                    style: const TextStyle(
+                                      color: Colors.black54,
+                                    ),
+                                  ),
                                   trailing: IconButton(
-                                    icon: const Icon(Icons.delete, color: Colors.red),
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      color: Colors.red,
+                                    ),
                                     onPressed: () {
                                       setState(() {
                                         productos.removeAt(i);
@@ -409,59 +473,134 @@ class _NuevaRecepcionScreenState extends State<NuevaRecepcionScreen> {
                             },
                           ),
                   ),
-
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
+                    child: ElevatedButton.icon(
                       onPressed: loading ? null : guardar,
-                      child: loading
-                          ? const CircularProgressIndicator()
-                          : const Text("GUARDAR"),
+                      icon: loading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.save_outlined),
+                      label: Text(loading ? "Guardando..." : "GUARDAR"),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
                   ),
                 ],
               )
             : Column(
                 children: [
-                  TextField(
-                    controller: planillaController,
-                    decoration: const InputDecoration(labelText: 'Planilla'),
-                  ),
-                  const SizedBox(height: 10),
+                  Card(
+                    elevation: 1.4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: planillaController,
+                            decoration: InputDecoration(
+                              labelText: 'Planilla',
+                              prefixIcon:
+                                  const Icon(Icons.receipt_long_outlined),
+                              border: inputBorder,
+                              enabledBorder: inputBorder,
+                              focusedBorder: inputBorder.copyWith(
+                                borderSide: const BorderSide(
+                                  color: Color(0xFF0A2A5E),
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<Map<String, dynamic>>(
+                            hint: const Text("Seleccionar vehículo"),
+                            decoration: InputDecoration(
+                              prefixIcon:
+                                  const Icon(Icons.local_shipping_outlined),
+                              border: inputBorder,
+                              enabledBorder: inputBorder,
+                              focusedBorder: inputBorder.copyWith(
+                                borderSide: const BorderSide(
+                                  color: Color(0xFF0A2A5E),
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                            items: vehiculos.map((v) {
+                              return DropdownMenuItem(
+                                value: v,
+                                child: Text("${v['ruta']} - ${v['placa']}"),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                vehiculoSeleccionado = value;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                if (planillaController.text.isEmpty ||
+                                    vehiculoSeleccionado == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Completa los datos'),
+                                    ),
+                                  );
+                                  return;
+                                }
 
-                  DropdownButtonFormField<Map<String, dynamic>>(
-                    hint: const Text("Seleccionar vehículo"),
-                    items: vehiculos.map((v) {
-                      return DropdownMenuItem(
-                        value: v,
-                        child: Text("${v['ruta']} - ${v['placa']}"),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        vehiculoSeleccionado = value;
-                      });
-                    },
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  ElevatedButton(
-                    onPressed: () {
-                      if (planillaController.text.isEmpty ||
-                          vehiculoSeleccionado == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Completa los datos')),
-                        );
-                        return;
-                      }
-
-                      setState(() => iniciado = true);
-                    },
-                    child: const Text("INICIAR"),
+                                setState(() => iniciado = true);
+                              },
+                              icon: const Icon(Icons.play_arrow),
+                              label: const Text("INICIAR"),
+                              style: ElevatedButton.styleFrom(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
+      ),
+    );
+  }
+
+  Widget _chipMonto(String titulo, String valor, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        "$titulo: $valor",
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
       ),
     );
   }

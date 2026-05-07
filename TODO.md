@@ -1,7 +1,7 @@
-# TODO - Formato de moneda COP
+# TODO - Ajustes detalle recepción
 
-- [x] Actualizar `lib/screens/control_salida_page.dart` para usar `NumberFormat.currency` en valores monetarios.
-- [x] Actualizar `lib/screens/detalle_salida_page.dart` para usar `NumberFormat.currency` en valores monetarios.
-- [x] Revisar `lib/screens/detalle_recepcion_screen.dart` (sin cambios funcionales si ya está correcto).
+- [x] Al editar cantidad, eliminar ítem si cantidad <= 0.
+- [x] Mejorar flujo de agregar producto nuevo (validaciones básicas y UX mínima).
+- [x] Mantener recalculo de totales tras editar/agregar/eliminar.
 - [ ] Ejecutar `flutter analyze`.
-- [ ] Marcar tareas completadas y entregar resumen.
+- [ ] Entregar resumen.

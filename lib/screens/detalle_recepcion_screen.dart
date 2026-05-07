@@ -15,6 +15,31 @@ class DetalleRecepcionScreen extends StatefulWidget {
 class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
   final supabase = Supabase.instance.client;
 
+  String _normalizarTipo(dynamic tipoRaw) {
+    return (tipoRaw ?? '')
+        .toString()
+        .trim()
+        .toLowerCase()
+        .replaceAll('ó', 'o')
+        .replaceAll('í', 'i')
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('ú', 'u');
+  }
+
+  bool _esDevolucionBuena(String tipo) {
+    return tipo == 'devolucion buena' ||
+        tipo == 'devolucion_buena' ||
+        tipo == 'dev buena';
+  }
+
+  bool _esMalManejo(String tipo) {
+    return tipo == 'dev_mal_manejo' ||
+        tipo == 'dev mal manejo' ||
+        tipo == 'devolucion por mal manejo' ||
+        tipo == 'devolucion mal manejo';
+  }
+
   late Map<String, dynamic> recepcionActual;
   List detalles = [];
   bool loading = true;
@@ -38,12 +63,42 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
         .select()
         .eq('recepcion_id', widget.recepcion['id']);
 
-    await recalcularTotalesRecepcion(silent: true);
+    double totalGeneral = 0;
+    double totalDevolucionBuena = 0;
+    double totalAverias = 0;
+    double totalMalManejo = 0;
+
+    for (final row in data) {
+      final cantidad = (row['cantidad'] as num?) ?? 0;
+      final precio = (row['precio'] as num?) ?? 0;
+      final subtotal = cantidad * precio;
+      final tipo = _normalizarTipo(row['tipo']);
+
+      totalGeneral += subtotal;
+      if (tipo == 'averia') {
+        totalAverias += subtotal;
+      } else if (_esMalManejo(tipo)) {
+        totalMalManejo += subtotal;
+      } else if (_esDevolucionBuena(tipo)) {
+        totalDevolucionBuena += subtotal;
+      }
+    }
 
     setState(() {
       detalles = data;
+      recepcionActual['total'] = totalGeneral;
+      recepcionActual['total_devolucion_buena'] = totalDevolucionBuena;
+      recepcionActual['total_averias'] = totalAverias;
+      recepcionActual['total_dev_mal_manejo'] = totalMalManejo;
       loading = false;
     });
+
+    await supabase.from('recepciones').update({
+      'total': totalGeneral,
+      'total_devolucion_buena': totalDevolucionBuena,
+      'total_averias': totalAverias,
+      'total_dev_mal_manejo': totalMalManejo,
+    }).eq('id', widget.recepcion['id']);
   }
 
   Future<void> editarCantidad(Map item) async {
@@ -75,9 +130,16 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
 
     if (nuevaCantidad == null) return;
 
-    await supabase
-        .from('recepcion_detalle')
-        .update({'cantidad': nuevaCantidad}).eq('id', item['id']);
+    if (nuevaCantidad <= 0) {
+      await supabase
+          .from('recepcion_detalle')
+          .delete()
+          .eq('id', item['id']);
+    } else {
+      await supabase
+          .from('recepcion_detalle')
+          .update({'cantidad': nuevaCantidad}).eq('id', item['id']);
+    }
 
     await recalcularTotalesRecepcion();
     await cargarDetalle();
@@ -151,9 +213,21 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
                   child: const Text('Cancelar')),
               ElevatedButton(
                   onPressed: () {
+                    final sku = skuController.text.trim();
+                    final cantidad = int.tryParse(cantidadController.text) ?? 0;
+
+                    if (sku.isEmpty || cantidad <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Ingrese SKU y cantidad válida'),
+                        ),
+                      );
+                      return;
+                    }
+
                     Navigator.pop(context, {
-                      'sku': skuController.text,
-                      'cantidad': int.tryParse(cantidadController.text) ?? 1,
+                      'sku': sku,
+                      'cantidad': cantidad,
                       'tipo': tipo
                     });
                   },
@@ -208,15 +282,15 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
       final cantidad = (row['cantidad'] as num?) ?? 0;
       final precio = (row['precio'] as num?) ?? 0;
       final subtotal = cantidad * precio;
-      final tipo = (row['tipo'] ?? '').toString();
+      final tipo = _normalizarTipo(row['tipo']);
 
       totalGeneral += subtotal;
 
       if (tipo == 'averia') {
         totalAverias += subtotal;
-      } else if (tipo == 'dev_mal_manejo') {
+      } else if (_esMalManejo(tipo)) {
         totalMalManejo += subtotal;
-      } else if (tipo == 'devolucion buena') {
+      } else if (_esDevolucionBuena(tipo)) {
         totalDevolucionBuena += subtotal;
       }
     }
@@ -242,7 +316,34 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
       recepcionActual['total_devolucion_buena'] = totalDevolucionBuena;
       recepcionActual['total_averias'] = totalAverias;
       recepcionActual['total_dev_mal_manejo'] = totalMalManejo;
+
+      // Compatibilidad temporal:
+      // Si en la lista viene intercambiado D y M, aquí lo corregimos para mostrar bien.
+      final d = (recepcionActual['total_devolucion_buena'] as num?) ?? 0;
+      final m = (recepcionActual['total_dev_mal_manejo'] as num?) ?? 0;
+      if (d == 0 && m > 0) {
+        recepcionActual['total_devolucion_buena'] = m;
+        recepcionActual['total_dev_mal_manejo'] = 0;
+      }
     });
+  }
+
+  Widget _montoChip(String titulo, String valor, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        '$titulo: $valor',
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+      ),
+    );
   }
 
   @override
@@ -250,81 +351,119 @@ class _DetalleRecepcionScreenState extends State<DetalleRecepcionScreen> {
     final r = recepcionActual;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Detalle Recepción')),
-
-      floatingActionButton: FloatingActionButton(
+      backgroundColor: const Color(0xFFF4F6FB),
+      appBar: AppBar(
+        title: const Text('Detalle Recepción'),
+        elevation: 0,
+      ),
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: agregarProducto,
         backgroundColor: Colors.green,
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('Agregar'),
       ),
-
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                Card(
-                  margin: const EdgeInsets.all(10),
-                  child: Padding(
-                    padding: const EdgeInsets.all(15),
-                    child: Column(
-                      children: [
-                        Text("Planilla: ${r['planilla']}"),
-                        Text("Placa: ${r['placa']}"),
-                        const SizedBox(height: 8),
-                        Text(
-                          currencyFormat.format(r['total'] ?? 0),
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x14000000),
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        "Planilla: ${r['planilla']} • Placa: ${r['placa']}",
+                        style: const TextStyle(
+                          color: Colors.black54,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        currencyFormat.format(r['total'] ?? 0),
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0A2A5E),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _montoChip(
+                            "Devolución buena",
+                            currencyFormat
+                                .format(r['total_devolucion_buena'] ?? 0),
+                            const Color(0xFF2E7D32),
                           ),
-                        ),
-                        const SizedBox(height: 5),
-                        Row(
-                          mainAxisAlignment:
-                              MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Devolución buena: ${currencyFormat.format(r['total_devolucion_buena'] ?? 0)}',
-                                style: const TextStyle(color: Colors.green),
-                              ),
-                            ),
-                            Expanded(
-                              child: Text(
-                                'Averías: ${currencyFormat.format(r['total_averias'] ?? 0)}',
-                                style: const TextStyle(color: Colors.red),
-                                textAlign: TextAlign.end,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                          _montoChip(
+                            "Averías",
+                            currencyFormat.format(r['total_averias'] ?? 0),
+                            const Color(0xFFC62828),
+                          ),
+                          _montoChip(
+                            "Mal manejo",
+                            currencyFormat
+                                .format(r['total_dev_mal_manejo'] ?? 0),
+                            const Color(0xFFEF6C00),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-
                 Expanded(
                   child: ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 80),
                     itemCount: detalles.length,
                     itemBuilder: (_, i) {
                       final d = detalles[i];
-
-                      final esAveria = d['tipo'] == 'averia';
+                      final tipo = (d['tipo'] ?? '').toString();
+                      final esAveria = tipo == 'averia';
+                      final esMalManejo = tipo == 'dev_mal_manejo';
+                      final colorTipo = esAveria
+                          ? const Color(0xFFC62828)
+                          : (esMalManejo
+                              ? const Color(0xFFEF6C00)
+                              : const Color(0xFF2E7D32));
 
                       return Card(
-                        color: esAveria
-                            ? Colors.red.withValues(alpha: 0.1)
-                            : Colors.green.withValues(alpha: 0.1),
+                        elevation: 1.2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                         child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          leading: CircleAvatar(
+                            backgroundColor: colorTipo.withValues(alpha: 0.12),
+                            child: Icon(Icons.inventory_2, color: colorTipo),
+                          ),
                           title: Text(
                             d['nombre'],
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                           subtitle: Text(
-                            "Cant: ${d['cantidad']} - ${d['tipo']}",
+                            "Cant: ${d['cantidad']} • ${d['tipo']}",
                             style: TextStyle(
-                              color: esAveria ? Colors.red : Colors.green,
-                              fontWeight: FontWeight.bold,
+                              color: colorTipo,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           trailing: IconButton(

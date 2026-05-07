@@ -46,13 +46,23 @@ class _HistorialSalidaPageState extends State<HistorialSalidaPage> {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
+        backgroundColor: const Color(0xFFF4F6FB),
         appBar: AppBar(
-          title: const Text("Historial de Salidas"),
-          bottom: const TabBar(
+          title: const Text(
+            "Historial de Salidas",
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          bottom: TabBar(
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white70,
-            indicatorColor: Colors.white,
-            tabs: [
+            indicator: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            indicatorPadding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            dividerColor: Colors.transparent,
+            tabs: const [
               Tab(text: "Faltantes"),
               Tab(text: "Canastas"),
             ],
@@ -60,14 +70,24 @@ class _HistorialSalidaPageState extends State<HistorialSalidaPage> {
         ),
         body: Column(
           children: [
-            ListTile(
-              title: const Text("Fecha"),
-              subtitle: Text(
-                DateFormat('dd/MM/yyyy').format(fechaSeleccionada),
+            Card(
+              margin: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
               ),
-              trailing: IconButton(
-                icon: const Icon(Icons.calendar_today),
-                onPressed: seleccionarFecha,
+              child: ListTile(
+                title: const Text(
+                  "Fecha",
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(
+                  DateFormat('dd/MM/yyyy').format(fechaSeleccionada),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.calendar_month),
+                  onPressed: seleccionarFecha,
+                ),
               ),
             ),
             Expanded(
@@ -119,34 +139,53 @@ class _HistorialSalidaPageState extends State<HistorialSalidaPage> {
                 final info = entry.value;
 
                 return Card(
-                  margin: const EdgeInsets.all(10),
-                  elevation: 3,
+                  margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+                  elevation: 1.5,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                   child: ListTile(
-                    leading: const Icon(Icons.local_shipping,
-                        color: Colors.blue),
-
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    leading: CircleAvatar(
+                      backgroundColor: const Color(0xFF0A2A5E).withValues(
+                        alpha: 0.12,
+                      ),
+                      child: const Icon(
+                        Icons.local_shipping_outlined,
+                        color: Color(0xFF0A2A5E),
+                      ),
+                    ),
                     title: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           info['ruta'],
                           style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          ),
                         ),
-                        Text("Vehículo: $vehiculo"),
-                        Text("Productos: ${info['cantidadItems']}"),
+                        const SizedBox(height: 2),
+                        Text(
+                          "Vehículo: $vehiculo",
+                          style: const TextStyle(color: Colors.black54),
+                        ),
+                        Text(
+                          "Productos: ${info['cantidadItems']}",
+                          style: const TextStyle(color: Colors.black54),
+                        ),
                       ],
                     ),
-
                     trailing: Text(
                       currencyFormat.format(info['total']),
                       style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF2E7D32),
                       ),
                     ),
-
                     onTap: () {
                       Navigator.push(
                         context,
@@ -154,7 +193,8 @@ class _HistorialSalidaPageState extends State<HistorialSalidaPage> {
                           builder: (_) => DetalleSalidaPage(
                             vehiculo: vehiculo,
                             items: List<Map<String, dynamic>>.from(
-                                info['items']),
+                              info['items'],
+                            ),
                           ),
                         ),
                       );
@@ -315,23 +355,46 @@ class _HistorialSalidaPageState extends State<HistorialSalidaPage> {
                 final diffText =
                     "G: ${info['diferencia_grandes']} | M: ${info['diferencia_medianas']} | P: ${info['diferencia_pequenas']}";
                 return Card(
-                  margin: const EdgeInsets.all(10),
-                  elevation: 3,
+                  margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+                  elevation: 1.5,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                   child: ListTile(
-                    leading: const Icon(Icons.inventory, color: Colors.green),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.green.withValues(alpha: 0.12),
+                      child: const Icon(Icons.inventory_2_outlined,
+                          color: Colors.green),
+                    ),
                     title: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           info['ruta'] ?? 'Sin ruta',
                           style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 16),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          ),
                         ),
-                        Text("Vehículo: $vehiculo"),
+                        const SizedBox(height: 2),
+                        Text(
+                          "Vehículo: $vehiculo",
+                          style: const TextStyle(color: Colors.black54),
+                        ),
                         const SizedBox(height: 4),
                         Text("Salida: $salidasText"),
                         Text("Entrada: $entradasText"),
-                        Text("Diferencia: $diffText"),
+                        Text(
+                          "Diferencia: $diffText",
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0A2A5E),
+                          ),
+                        ),
                       ],
                     ),
                   ),
